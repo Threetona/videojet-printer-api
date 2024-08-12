@@ -33,11 +33,11 @@ export class PrinterService {
                 packet = `${STX}${type}${data}${ETX}`;
                 break;
             case PacketType.PrintOnOff: // Handle Print On Off
-                packet = `${STX}${type}${data}${ETX}`;
+                packet = `${STX}${type}${ETX}`;
                 break;
             case PacketType.UpdateMessageText:
                 // [STX] [TYPE] [USER FIELD NAME] [SEP] [USER FIELD DATA] [ETX]
-                packet = `${STX}${type}${data}${LF}${data2 || ''}${LF}${ETX}`;
+                packet = `${STX}${type}${data}${LF}${data2 || ''}${ETX}`;
                 // packet = `${STX}${type}${data}${LF}${data2 || ''}${ETX}`;
                 break;
             case PacketType.UpdateUserFieldData:
@@ -45,6 +45,15 @@ export class PrinterService {
                 break;
             case PacketType.DeleteUserFieldData:
                 packet = `${STX}${type}${data}${ETX}`;
+                break;
+            case PacketType.RequestErrorStatus:
+                packet = `${STX}${type}${ETX}`;
+                break;
+            case PacketType.RequestCurrentSelectedMessage:
+                packet = `${STX}${type}${ETX}`;
+                break;
+            case PacketType.SetDateAndTime:
+                packet = `${STX}${type}[YY][MM][DD]${ETX}`;
                 break;
             default:
                 throw new Error('Invalid type');
@@ -55,6 +64,23 @@ export class PrinterService {
     }
 
     private calculateChecksum(packet: string): string {
+        let sum = 0;
+        for (let i = 1; i < packet.length - 3; i++) {
+            sum += packet.charCodeAt(i);
+        }
+        sum = sum % 256;
+        const highNibble = Math.floor(sum / 16)
+            .toString(16)
+            .toUpperCase()
+            .padStart(1, '0');
+        const lowNibble = (sum % 16)
+            .toString(16)
+            .toUpperCase()
+            .padStart(1, '0');
+        return `${highNibble}${lowNibble}`;
+    }
+
+    private calculateChecksumOld(packet: string): string {
         let sum = 0;
         // Calculate checksum for the portion between STX and ETX
         for (let i = 1; i < packet.length - 3; i++) {
@@ -71,6 +97,78 @@ export class PrinterService {
             .toUpperCase()
             .padStart(1, '0'); // Ensure low nibble is a single hex digit
         return `${highNibble}${lowNibble}`;
+    }
+
+    // check machine
+    async checkMachineStatus(): Promise<string> {
+        return new Promise((resolve, reject) => {
+            try {
+                const packet = this.createProtocolPacket(
+                    PacketType.RequestErrorStatus,
+                    '',
+                );
+
+                const client = new net.Socket();
+
+                client.connect(3100, '192.168.6.210', () => {
+                    this.logger.log('Koneksi ke mesin berhasil');
+                    client.write(packet);
+                });
+
+                client.on('data', (data) => {
+                    const response = data.toString().trim();
+                    this.logger.log('Respons dari mesin:', response);
+
+                    // Pastikan format respons: [STX][EEEEEE][A][ETX]
+                    if (
+                        response.length >= 8 &&
+                        response.startsWith(String.fromCharCode(0x02)) &&
+                        response.endsWith(String.fromCharCode(0x03))
+                    ) {
+                        const status = response.substring(
+                            1,
+                            response.length - 1,
+                        ); // Menghapus STX dan ETX
+
+                        if (
+                            status.length === 7 &&
+                            /^[0-9A-F]{7}$/.test(status)
+                        ) {
+                            // Jika responsnya adalah 0000000
+                            if (status === '0000000') {
+                                resolve('Machine On');
+                            } else {
+                                resolve('Machine Off');
+                                // resolve(
+                                //     'Mesin dalam keadaan mati atau kesalahan lainnya',
+                                // );
+                            }
+                        } else {
+                            reject('Format respons tidak valid');
+                        }
+                    } else {
+                        reject('Format respons tidak valid');
+                    }
+
+                    client.destroy();
+                });
+
+                client.on('error', (err) => {
+                    // this.logger.error('Error koneksi:', err.message);
+                    reject(`Error koneksi: ${err.message}`);
+                });
+
+                client.on('close', () => {
+                    this.logger.log('Koneksi ditutup');
+                });
+            } catch (error) {
+                this.logger.error(
+                    'Error di checkMachineStatus:',
+                    error.message,
+                );
+                reject(`Error: ${error.message}`);
+            }
+        });
     }
 
     async sendCommandsToPrinter(commands: CommandDto[]): Promise<string[]> {
@@ -194,6 +292,54 @@ export class PrinterService {
                 });
             } catch (error) {
                 this.logger.log('Error in sendCommandToPrinter:', error); // Debug log
+                reject(`Error: ${error.message}`);
+            }
+        });
+    }
+
+    async setPrintOnOff(status: '0' | '1'): Promise<string> {
+        return new Promise((resolve, reject) => {
+            try {
+                // 'O' is the type for Print On/Off
+                const packet = this.createProtocolPacket(
+                    PacketType.PrintOnOff,
+                    status,
+                );
+
+                console.log(`${PacketType.PrintOnOff}${status}`);
+
+                const client = new net.Socket();
+
+                client.connect(3100, '192.168.6.210', () => {
+                    this.logger.log('Koneksi ke mesin berhasil');
+                    client.write(packet);
+                });
+
+                client.on('data', (data) => {
+                    const response = data.toString().trim();
+                    this.logger.log('Respons dari mesin:', response);
+
+                    if (response.startsWith('$')) {
+                        resolve('Perintah berhasil dijalankan');
+                    } else if (response.startsWith('!')) {
+                        reject('Perintah gagal');
+                    } else {
+                        reject('Format respons tidak valid');
+                    }
+
+                    client.destroy();
+                });
+
+                client.on('error', (err) => {
+                    this.logger.error('Error koneksi:', err.message);
+                    reject(`Error koneksi: ${err.message}`);
+                });
+
+                client.on('close', () => {
+                    this.logger.log('Koneksi ditutup');
+                });
+            } catch (error) {
+                this.logger.error('Error di setPrintOnOff:', error.message);
                 reject(`Error: ${error.message}`);
             }
         });

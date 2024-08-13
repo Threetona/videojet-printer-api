@@ -4,97 +4,150 @@ import {
     Body,
     HttpException,
     HttpStatus,
-    BadRequestException,
     Get,
+    Logger,
 } from '@nestjs/common';
-import { CommandDto } from './dto/command.dto';
-import { CommandDto2 } from './dto/command2.dto';
 import { PrinterService } from './printer.service';
-import { PacketType } from './types/packet-type.enum';
-import { ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CommandEntity } from './entities/Command.entity';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PrintOnOffDto } from './dto/print-on-off.dto';
+import { MessageSelectDto } from './dto/message-select.dto';
+import { UpdateMessageTextDto } from './dto/update-message-text.dto';
+import { UpdateUserFieldDto } from './dto/update-user-field.dto';
 
 @Controller('printer')
 @ApiTags('Implementasi paket protokol mesin Videojet')
 export class PrinterController {
+    private readonly logger = new Logger(PrinterController.name);
+
     constructor(private readonly printerService: PrinterService) {}
 
-    @Post('send-multy-command')
-    @ApiResponse({
-        status: 200,
-        description: 'Successful response',
-        type: [CommandEntity],
-    })
-    async sendCommand(
-        @Body() commands: CommandDto[],
-    ): Promise<{ status: string; message: string[] }> {
-        if (
-            !commands.every((cmd: any) =>
-                Object.values(PacketType).includes(cmd.type),
-            )
-        ) {
-            throw new BadRequestException('Invalid command type');
-        }
-
+    @Get('error-status')
+    async getErrorStatus() {
         try {
-            const result =
-                await this.printerService.sendCommandsToPrinter(commands);
+            const result = await this.printerService.getErrorStatus();
             return {
-                status: 'success',
-                message: result, // Add additional result details if needed
+                statusCode: HttpStatus.OK,
+                errorStatus: result.errorStatus,
+                message: result.message,
             };
         } catch (error) {
-            throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new HttpException(
+                {
+                    statusCode: HttpStatus.BAD_REQUEST,
+                    message: error,
+                },
+                HttpStatus.BAD_REQUEST,
+            );
         }
     }
 
-    @Post('send-command')
-    @ApiResponse({
-        status: 200,
-        description: 'Successful response',
-        type: [CommandEntity],
-    })
-    async sendCommand2(@Body() commandDto: CommandDto2) {
+    @Get('stop-jet')
+    async stopJet(): Promise<string> {
+        try {
+            const result = await this.printerService.stopJet();
+            return result;
+        } catch (error) {
+            throw new Error(error);
+        }
+    }
+
+    /**
+     * Endpoint to turn printing on or off.
+     * @param body Contains the printOn parameter to turn printing on (1) or off (0).
+     * @returns A response indicating the result of the command.
+     */
+    @Post('print-on-off')
+    async printOnOff(@Body() printOnOffDto: PrintOnOffDto): Promise<string> {
+        this.logger.log(
+            `Received print on/off request with value: ${printOnOffDto.printOn}`,
+        );
+        try {
+            const result = await this.printerService.printOnOff(
+                printOnOffDto.printOn,
+            );
+            return result;
+        } catch (error) {
+            this.logger.error('Print On/Off command failed', error);
+            throw new Error('Print On/Off command failed');
+        }
+    }
+
+    @Post('select-message')
+    async selectMessage(@Body() messageSelectDto: MessageSelectDto) {
+        this.logger.log(
+            `Received message select request with name: ${messageSelectDto.messageName}`,
+        );
         try {
             const result =
-                await this.printerService.sendCommandToPrinter(commandDto);
-            return { status: 'success', message: result };
+                await this.printerService.selectMessage(messageSelectDto);
+            return { message: result };
         } catch (error) {
-            throw new HttpException(error, HttpStatus.BAD_REQUEST);
+            this.logger.error('Message select failed', error);
+            throw new Error('Message select command failed');
         }
     }
 
-    @Post('print-on-off')
-    async setPrintOnOff(
-        @Body() printOnOffDto: PrintOnOffDto,
-    ): Promise<{ message: string }> {
+    // @Post('update-message-text')
+    // async updateMessageText(
+    //     @Body() updateMessageTextDto: UpdateMessageTextDto,
+    // ): Promise<string> {
+    //     const { messageData } = updateMessageTextDto;
+    //     this.logger.log(
+    //         `Received update message text request with data: ${messageData}`,
+    //     );
+    //     return await this.printerService.updateMessageText(messageData);
+    // }
+    @Post('update-message-text')
+    @ApiOperation({ summary: 'Update message text' })
+    @ApiResponse({
+        status: 200,
+        description: 'Message text updated successfully.',
+    })
+    @ApiResponse({ status: 400, description: 'Invalid request payload.' })
+    async updateMessageText(
+        @Body() updateMessageTextDto: UpdateMessageTextDto,
+    ) {
         try {
-            const result = await this.printerService.setPrintOnOff(
-                printOnOffDto.status,
+            const result = await this.printerService.updateMessageText(
+                updateMessageTextDto.messageName,
+                updateMessageTextDto.messageData,
             );
             return { message: result };
         } catch (error) {
-            console.error('Error di setPrintOnOff:', error);
+            throw new Error(
+                `Update Message Text command failed: ${error.message}`,
+            );
+        }
+    }
+
+    @Post('update-user-field')
+    async updateUserFieldData(
+        @Body() updateUserFieldDto: UpdateUserFieldDto,
+    ): Promise<string> {
+        const { userFieldName, userFieldData } = updateUserFieldDto;
+        try {
+            return await this.printerService.updateUserFieldData(
+                userFieldName,
+                userFieldData,
+            );
+        } catch (error) {
+            throw new Error(
+                `Update User Field Data command failed: ${error.message}`,
+            );
+        }
+    }
+
+    @Get('delete-message-text')
+    async deleteMessageText() {
+        try {
+            const result = await this.printerService.deleteMessageText();
+            return { message: result };
+        } catch (error) {
+            this.logger.error('Delete Message Text command failed', error);
             throw new HttpException(
-                'Gagal mengatur status cetak',
+                'Delete Message Text command failed',
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
-        }
-    }
-
-    @Get('status')
-    async checkMachineStatus(): Promise<{ message: string }> {
-        try {
-            const result = await this.printerService.checkMachineStatus();
-            return { message: result };
-        } catch (error) {
-            return { message: 'Machine Off' };
-            // console.error('Error di checkMachineStatus:', error);
-            // throw new HttpException(
-            //     'Gagal memeriksa status mesin',
-            //     HttpStatus.INTERNAL_SERVER_ERROR,
-            // );
         }
     }
 }

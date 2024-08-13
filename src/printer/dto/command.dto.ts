@@ -11,21 +11,21 @@ export class CommandDto {
     })
     type: PacketType;
 
-    @IsString({ message: 'data must be a string' })
+    @IsString({ message: 'field name must be a string' })
     @ApiProperty({
-        description: 'Data for the command',
+        description: 'field name for the command',
         example: 'TITLE1',
     })
-    data: string;
+    fieldName: string;
 
-    @IsString({ message: 'data2 must be a string' })
+    @IsString({ message: 'field data must be a string' })
     @IsOptional()
     @ApiProperty({
         description: 'Optional additional data for the command',
         example: 'PRINT LABEL KARA Lait de coco',
         required: false,
     })
-    data2?: string;
+    fieldData?: string;
 }
 
 // export class CommandDto {

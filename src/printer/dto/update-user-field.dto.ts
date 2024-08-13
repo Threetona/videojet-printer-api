@@ -1,19 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, Length } from 'class-validator';
-import { PacketType } from '../types/packet-type.enum';
 
-export class CommandDto2 {
+export class UpdateUserFieldDto {
     @IsString()
-    @Length(1, 1)
+    @Length(1, 30)
     @ApiProperty()
-    type: PacketType;
+    userFieldName: string;
 
     @IsString()
-    @ApiProperty()
-    fieldName: string;
-
-    @IsString()
+    @Length(1, 50)
     @IsOptional()
     @ApiProperty({ required: false })
-    fieldData?: string;
+    userFieldData?: string;
 }

@@ -13,6 +13,7 @@ import { PrintOnOffDto } from './dto/print-on-off.dto';
 import { MessageSelectDto } from './dto/message-select.dto';
 import { UpdateMessageTextDto } from './dto/update-message-text.dto';
 import { UpdateUserFieldDto } from './dto/update-user-field.dto';
+import { UpdateMultyUserFieldDto } from './dto/update-multy-user-field.dto';
 
 @Controller('printer')
 @ApiTags('Implementasi paket protokol mesin Videojet')
@@ -111,6 +112,7 @@ export class PrinterController {
             const result = await this.printerService.updateMessageText(
                 updateMessageTextDto.messageName,
                 updateMessageTextDto.messageData,
+                updateMessageTextDto.IpAddress,
             );
             return { message: result };
         } catch (error) {
@@ -124,17 +126,27 @@ export class PrinterController {
     async updateUserFieldData(
         @Body() updateUserFieldDto: UpdateUserFieldDto,
     ): Promise<string> {
-        const { userFieldName, userFieldData } = updateUserFieldDto;
+        const { userFieldName, userFieldData, IpAddress } = updateUserFieldDto;
         try {
             return await this.printerService.updateUserFieldData(
                 userFieldName,
                 userFieldData,
+                IpAddress,
             );
         } catch (error) {
             throw new Error(
                 `Update User Field Data command failed: ${error.message}`,
             );
         }
+    }
+
+    @Post('update-multy-user-field')
+    async updateMultyUserField(
+        @Body() updateMultyUserFieldDto: UpdateMultyUserFieldDto[],
+    ): Promise<string> {
+        return this.printerService.updateMultyUserField(
+            updateMultyUserFieldDto,
+        );
     }
 
     @Get('delete-message-text')

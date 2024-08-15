@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, ValidateNested } from 'class-validator';
+import {
+    IsArray,
+    IsNotEmpty,
+    IsString,
+    Length,
+    ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { MessageDataDto } from './message-data.dto';
 
@@ -16,4 +22,9 @@ export class UpdateMessageTextDto {
     @ValidateNested({ each: true })
     @Type(() => MessageDataDto)
     messageData: MessageDataDto[];
+
+    @IsString()
+    @Length(1, 15)
+    @ApiProperty()
+    IpAddress: string;
 }

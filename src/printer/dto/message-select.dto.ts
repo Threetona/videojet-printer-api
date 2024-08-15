@@ -9,4 +9,9 @@ export class MessageSelectDto {
         example: 'MyMessage',
     })
     messageName: string;
+
+    @IsString()
+    @Length(1, 15)
+    @ApiProperty()
+    IpAddress: string;
 }

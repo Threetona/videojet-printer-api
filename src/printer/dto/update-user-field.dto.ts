@@ -12,4 +12,9 @@ export class UpdateUserFieldDto {
     @IsOptional()
     @ApiProperty({ required: false })
     userFieldData?: string;
+
+    @IsString()
+    @Length(1, 30)
+    @ApiProperty()
+    IpAddress: string;
 }

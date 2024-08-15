@@ -3,6 +3,7 @@ import * as net from 'net';
 import { PacketType } from './types/packet-type.enum';
 import { MessageSelectDto } from './dto/message-select.dto';
 import { MessageDataDto } from './dto/message-data.dto';
+import { UpdateMultyUserFieldDto } from './dto/update-multy-user-field.dto';
 // import { ErrorStatusResponseDto } from './dto/error-status-response.dto'; // Tambahkan import ini jika diperlukan
 
 @Injectable()
@@ -52,7 +53,7 @@ export class PrinterService {
             );
 
             const client = new net.Socket();
-            client.connect(3100, '192.168.6.210', () => {
+            client.connect(3100, '169.254.244.247', () => {
                 this.logger.log(`Sending packet: ${packet}`);
                 client.write(packet);
             });
@@ -90,7 +91,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(50000); // Timeout for connection and data
 
-            client.connect(3100, '192.168.6.210', () => {
+            client.connect(3100, '169.254.244.247', () => {
                 this.logger.log(`Sending Stop Jet packet: ${packet}`);
                 client.write(packet);
             });
@@ -137,7 +138,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(5000); // Set timeout for the connection
 
-            client.connect(3100, '192.168.6.210', () => {
+            client.connect(3100, '169.254.244.247', () => {
                 this.logger.log(`Sending Print On/Off packet: ${packet}`);
                 client.write(packet);
             });
@@ -185,7 +186,7 @@ export class PrinterService {
             ]);
 
             const client = new net.Socket();
-            client.connect(3100, '192.168.6.210', () => {
+            client.connect(3100, dto.IpAddress, () => {
                 this.logger.log(`Sending Message Select packet: ${packet}`);
                 client.write(packet);
             });
@@ -218,7 +219,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(5000); // Set timeout for the connection
 
-            client.connect(3100, '192.168.6.210', () => {
+            client.connect(3100, '169.254.244.247', () => {
                 this.logger.log(
                     `Sending Delete Message Text packet: ${packet}`,
                 );
@@ -257,6 +258,7 @@ export class PrinterService {
     async updateMessageText(
         messageName: string,
         messageData: MessageDataDto[],
+        IpAddress: string,
     ): Promise<string> {
         return new Promise((resolve, reject) => {
             // Prepare the message data fields
@@ -278,7 +280,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(10000); // Increase timeout to 10 seconds
 
-            client.connect(3100, '192.168.6.210', () => {
+            client.connect(3100, IpAddress, () => {
                 this.logger.log(
                     `Sending Update Message Text packet: ${packet}`,
                 );
@@ -322,7 +324,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(5000); // Set timeout for the connection
 
-            client.connect(3100, '192.168.6.210', () => {
+            client.connect(3100, '169.254.244.247', () => {
                 this.logger.log(
                     `Sending Update Message Text packet: ${packet}`,
                 );
@@ -360,6 +362,7 @@ export class PrinterService {
     async updateUserFieldData(
         userFieldName: string,
         userFieldData: string,
+        IpAddress: string,
     ): Promise<string> {
         return new Promise((resolve, reject) => {
             const packet = this.createProtocolPacket(
@@ -370,7 +373,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(5000); // Set timeout for the connection
 
-            client.connect(3100, '192.168.6.210', () => {
+            client.connect(3100, IpAddress, () => {
                 this.logger.log(
                     `Sending Update User Field Data packet: ${packet}`,
                 );
@@ -384,6 +387,57 @@ export class PrinterService {
                 // Check the response based on the expected format
                 if (response.startsWith('$')) {
                     resolve('User field data updated successfully');
+                } else {
+                    reject(`Unexpected response format or error: ${response}`);
+                }
+
+                client.destroy(); // Ensure client is destroyed after response
+            });
+
+            client.on('timeout', () => {
+                this.logger.error('Connection timed out');
+                client.destroy();
+                reject('Connection timed out');
+            });
+
+            client.on('error', (err) => {
+                this.logger.error(`Connection error: ${err.message}`);
+                client.destroy();
+                reject(`Error: ${err.message}`);
+            });
+        });
+    }
+
+    async updateMultyUserField(
+        userFields: UpdateMultyUserFieldDto[],
+    ): Promise<string> {
+        return new Promise((resolve, reject) => {
+            // Create packets for each user field update
+            const packets = userFields.map((field) =>
+                this.createProtocolPacket(PacketType.UpdateUserFieldData, [
+                    field.userFieldName,
+                    field.userFieldData,
+                ]),
+            );
+
+            const client = new net.Socket();
+            client.setTimeout(5000); // Set timeout for the connection
+
+            client.connect(3100, '', () => {
+                packets.forEach((packet) => {
+                    this.logger.log(
+                        `Sending Update User Field Data packet: ${packet}`,
+                    );
+                    client.write(packet);
+                });
+            });
+
+            client.on('data', (data) => {
+                const response = data.toString();
+                this.logger.log(`Received response: ${response}`);
+
+                if (response.startsWith('$')) {
+                    resolve('User fields updated successfully');
                 } else {
                     reject(`Unexpected response format or error: ${response}`);
                 }

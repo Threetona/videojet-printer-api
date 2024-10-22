@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
     IsArray,
     IsNotEmpty,
+    IsNumber,
     IsString,
     Length,
     ValidateNested,
@@ -27,4 +28,8 @@ export class UpdateMessageTextDto {
     @Length(1, 15)
     @ApiProperty()
     IpAddress: string;
+
+    @IsNumber()
+    @ApiProperty({ default: 3100 })
+    Port: number;
 }

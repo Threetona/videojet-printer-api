@@ -6,13 +6,15 @@ import {
     HttpStatus,
     Get,
     Logger,
+    Param,
+    ParseIntPipe,
 } from '@nestjs/common';
 import { PrinterService } from './printer.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PrintOnOffDto } from './dto/print-on-off.dto';
 import { MessageSelectDto } from './dto/message-select.dto';
-import { UpdateMessageTextDto } from './dto/update-message-text.dto';
 import { UpdateUserFieldDto } from './dto/update-user-field.dto';
+import { UpdateMessageTextDto } from './dto/update-message-text.dto';
 import { UpdateMultyUserFieldDto } from './dto/update-multy-user-field.dto';
 
 @Controller('printer')
@@ -22,10 +24,13 @@ export class PrinterController {
 
     constructor(private readonly printerService: PrinterService) {}
 
-    @Get('error-status')
-    async getErrorStatus() {
+    @Get('error-status/:IP/:Port')
+    async getErrorStatus(
+        @Param('IP') IP: string,
+        @Param('Port', ParseIntPipe) Port: number,
+    ) {
         try {
-            const result = await this.printerService.getErrorStatus();
+            const result = await this.printerService.getErrorStatus(IP, Port);
             return {
                 statusCode: HttpStatus.OK,
                 errorStatus: result.errorStatus,
@@ -42,10 +47,13 @@ export class PrinterController {
         }
     }
 
-    @Get('stop-jet')
-    async stopJet(): Promise<string> {
+    @Get('stop-jet/:IP/:Port')
+    async stopJet(
+        @Param('IP') IP: string,
+        @Param('Port', ParseIntPipe) Port: number,
+    ): Promise<string> {
         try {
-            const result = await this.printerService.stopJet();
+            const result = await this.printerService.stopJet(IP, Port);
             return result;
         } catch (error) {
             throw new Error(error);
@@ -63,9 +71,7 @@ export class PrinterController {
             `Received print on/off request with value: ${printOnOffDto.printOn}`,
         );
         try {
-            const result = await this.printerService.printOnOff(
-                printOnOffDto.printOn,
-            );
+            const result = await this.printerService.printOnOff(printOnOffDto);
             return result;
         } catch (error) {
             this.logger.error('Print On/Off command failed', error);
@@ -113,6 +119,7 @@ export class PrinterController {
                 updateMessageTextDto.messageName,
                 updateMessageTextDto.messageData,
                 updateMessageTextDto.IpAddress,
+                updateMessageTextDto.Port,
             );
             return { message: result };
         } catch (error) {
@@ -126,12 +133,14 @@ export class PrinterController {
     async updateUserFieldData(
         @Body() updateUserFieldDto: UpdateUserFieldDto,
     ): Promise<string> {
-        const { userFieldName, userFieldData, IpAddress } = updateUserFieldDto;
+        const { userFieldName, userFieldData, IpAddress, Port } =
+            updateUserFieldDto;
         try {
             return await this.printerService.updateUserFieldData(
                 userFieldName,
                 userFieldData,
                 IpAddress,
+                Port,
             );
         } catch (error) {
             throw new Error(
@@ -142,17 +151,23 @@ export class PrinterController {
 
     @Post('update-multy-user-field')
     async updateMultyUserField(
-        @Body() updateMultyUserFieldDto: UpdateMultyUserFieldDto[],
+        @Body() updateMultyUserFieldDto: UpdateMultyUserFieldDto,
     ): Promise<string> {
         return this.printerService.updateMultyUserField(
             updateMultyUserFieldDto,
         );
     }
 
-    @Get('delete-message-text')
-    async deleteMessageText() {
+    @Get('delete-message-text/:IP/:Port')
+    async deleteMessageText(
+        @Param('IP') IP: string,
+        @Param('Port', ParseIntPipe) Port: number,
+    ) {
         try {
-            const result = await this.printerService.deleteMessageText();
+            const result = await this.printerService.deleteMessageText(
+                IP,
+                Port,
+            );
             return { message: result };
         } catch (error) {
             this.logger.error('Delete Message Text command failed', error);

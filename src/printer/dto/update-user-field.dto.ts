@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, Length } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Length } from 'class-validator';
 
 export class UpdateUserFieldDto {
     @IsString()
@@ -17,4 +17,8 @@ export class UpdateUserFieldDto {
     @Length(1, 30)
     @ApiProperty()
     IpAddress: string;
+
+    @IsNumber()
+    @ApiProperty({ default: 3100 })
+    Port: number;
 }

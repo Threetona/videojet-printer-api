@@ -4,6 +4,7 @@ import { PacketType } from './types/packet-type.enum';
 import { MessageSelectDto } from './dto/message-select.dto';
 import { MessageDataDto } from './dto/message-data.dto';
 import { UpdateMultyUserFieldDto } from './dto/update-multy-user-field.dto';
+import { PrintOnOffDto } from './dto/print-on-off.dto';
 // import { ErrorStatusResponseDto } from './dto/error-status-response.dto'; // Tambahkan import ini jika diperlukan
 
 @Injectable()
@@ -46,14 +47,17 @@ export class PrinterService {
     }
 
     // Method to status the jet
-    async getErrorStatus(): Promise<{ errorStatus: string; message: string }> {
+    async getErrorStatus(
+        IP: string,
+        Port: number,
+    ): Promise<{ errorStatus: string; message: string }> {
         return new Promise((resolve, reject) => {
             const packet = this.createProtocolPacket(
                 PacketType.RequestErrorStatus,
             );
 
             const client = new net.Socket();
-            client.connect(3100, '169.254.244.247', () => {
+            client.connect(Port, IP, () => {
                 this.logger.log(`Sending packet: ${packet}`);
                 client.write(packet);
             });
@@ -83,7 +87,7 @@ export class PrinterService {
     }
 
     // Method to stop the jet
-    async stopJet(): Promise<string> {
+    async stopJet(IP: string, Port: number): Promise<string> {
         return new Promise((resolve, reject) => {
             // Format the packet according to documentation
             const packet = this.createProtocolPacket(PacketType.StopJet);
@@ -91,7 +95,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(50000); // Timeout for connection and data
 
-            client.connect(3100, '169.254.244.247', () => {
+            client.connect(Port, IP, () => {
                 this.logger.log(`Sending Stop Jet packet: ${packet}`);
                 client.write(packet);
             });
@@ -129,16 +133,16 @@ export class PrinterService {
      * @param printOn '0' to turn off printing, '1' to turn on printing.
      * @returns A promise that resolves with the printer's response.
      */
-    async printOnOff(printOn: '0' | '1'): Promise<string> {
+    async printOnOff(printOnOffDto: PrintOnOffDto): Promise<string> {
         return new Promise((resolve, reject) => {
             const packet = this.createProtocolPacket(PacketType.PrintOnOff, [
-                printOn,
+                printOnOffDto.printOn,
             ]);
 
             const client = new net.Socket();
             client.setTimeout(5000); // Set timeout for the connection
 
-            client.connect(3100, '169.254.244.247', () => {
+            client.connect(printOnOffDto.Port, printOnOffDto.IpAddress, () => {
                 this.logger.log(`Sending Print On/Off packet: ${packet}`);
                 client.write(packet);
             });
@@ -186,7 +190,7 @@ export class PrinterService {
             ]);
 
             const client = new net.Socket();
-            client.connect(3100, dto.IpAddress, () => {
+            client.connect(dto.Port, dto.IpAddress, () => {
                 this.logger.log(`Sending Message Select packet: ${packet}`);
                 client.write(packet);
             });
@@ -210,7 +214,7 @@ export class PrinterService {
         });
     }
 
-    async deleteMessageText(): Promise<string> {
+    async deleteMessageText(IP: string, Port: number): Promise<string> {
         return new Promise((resolve, reject) => {
             const packet = this.createProtocolPacket(
                 PacketType.DeleteMessageText,
@@ -219,7 +223,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(5000); // Set timeout for the connection
 
-            client.connect(3100, '169.254.244.247', () => {
+            client.connect(Port, IP, () => {
                 this.logger.log(
                     `Sending Delete Message Text packet: ${packet}`,
                 );
@@ -259,6 +263,7 @@ export class PrinterService {
         messageName: string,
         messageData: MessageDataDto[],
         IpAddress: string,
+        Port: number,
     ): Promise<string> {
         return new Promise((resolve, reject) => {
             // Prepare the message data fields
@@ -280,7 +285,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(10000); // Increase timeout to 10 seconds
 
-            client.connect(3100, IpAddress, () => {
+            client.connect(Port, IpAddress, () => {
                 this.logger.log(
                     `Sending Update Message Text packet: ${packet}`,
                 );
@@ -363,6 +368,7 @@ export class PrinterService {
         userFieldName: string,
         userFieldData: string,
         IpAddress: string,
+        Port: number,
     ): Promise<string> {
         return new Promise((resolve, reject) => {
             const packet = this.createProtocolPacket(
@@ -373,7 +379,7 @@ export class PrinterService {
             const client = new net.Socket();
             client.setTimeout(5000); // Set timeout for the connection
 
-            client.connect(3100, IpAddress, () => {
+            client.connect(Port, IpAddress, () => {
                 this.logger.log(
                     `Sending Update User Field Data packet: ${packet}`,
                 );
@@ -409,21 +415,20 @@ export class PrinterService {
     }
 
     async updateMultyUserField(
-        userFields: UpdateMultyUserFieldDto[],
+        userFieldDto: UpdateMultyUserFieldDto,
     ): Promise<string> {
         return new Promise((resolve, reject) => {
-            // Create packets for each user field update
-            const packets = userFields.map((field) =>
+            const packets = userFieldDto.messageData.map((field) =>
                 this.createProtocolPacket(PacketType.UpdateUserFieldData, [
                     field.userFieldName,
                     field.userFieldData,
                 ]),
             );
-
             const client = new net.Socket();
-            client.setTimeout(5000); // Set timeout for the connection
-
-            client.connect(3100, '', () => {
+            client.setTimeout(5000);
+            console.log(userFieldDto.IpAddress);
+            console.log(userFieldDto.Port);
+            client.connect(userFieldDto.Port, userFieldDto.IpAddress, () => {
                 packets.forEach((packet) => {
                     this.logger.log(
                         `Sending Update User Field Data packet: ${packet}`,
@@ -431,26 +436,21 @@ export class PrinterService {
                     client.write(packet);
                 });
             });
-
             client.on('data', (data) => {
                 const response = data.toString();
                 this.logger.log(`Received response: ${response}`);
-
                 if (response.startsWith('$')) {
                     resolve('User fields updated successfully');
                 } else {
                     reject(`Unexpected response format or error: ${response}`);
                 }
-
                 client.destroy(); // Ensure client is destroyed after response
             });
-
             client.on('timeout', () => {
                 this.logger.error('Connection timed out');
                 client.destroy();
                 reject('Connection timed out');
             });
-
             client.on('error', (err) => {
                 this.logger.error(`Connection error: ${err.message}`);
                 client.destroy();

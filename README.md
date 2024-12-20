@@ -32,9 +32,6 @@ Aplikasi ini dikembangkan untuk memfasilitasi pengiriman data produksi ke mesin 
 3. Penggunaan teknologi terkini untuk meningkatkan kinerja.
 4. Dukungan untuk pengembangan lanjutan.
 
-## Pengalaman Kerja
-Aplikasi ini dikembangkan selama 3 bulan dengan tim. Saya bertanggung jawab sebagai Project Manager dan berhasil mengimplementasikan fitur-fitur utama dan mengintegrasikan aplikasi dengan mesin Videojet 1520.
-
 ## Installation
 
 ```bash

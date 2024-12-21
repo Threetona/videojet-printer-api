@@ -47,6 +47,19 @@ export class PrinterController {
         }
     }
 
+    // @Get('start-jet/:IP/:Port')
+    // async startJet(
+    //     @Param('IP') IP: string,
+    //     @Param('Port', ParseIntPipe) Port: number,
+    // ): Promise<string> {
+    //     try {
+    //         const result = await this.printerService.startJet(IP, Port);
+    //         return result;
+    //     } catch (error) {
+    //         throw new Error(error);
+    //     }
+    // }
+
     @Get('stop-jet/:IP/:Port')
     async stopJet(
         @Param('IP') IP: string,

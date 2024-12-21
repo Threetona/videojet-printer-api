@@ -86,6 +86,49 @@ export class PrinterService {
         });
     }
 
+    async startJet(IP: string, Port: number): Promise<string> {
+        return new Promise((resolve, reject) => {
+            // Coba format perintah yang lebih sederhana, misalnya hanya "1510CMD"
+            const packet = this.createProtocolPacket(PacketType.StartJet, [
+                '1510CMD',
+            ]);
+
+            const client = new net.Socket();
+            client.setTimeout(50000); // Timeout untuk koneksi dan data
+
+            client.connect(Port, IP, () => {
+                this.logger.log(`Sending Start Jet packet: ${packet}`);
+                client.write(packet);
+            });
+
+            client.on('data', (data) => {
+                const response = data.toString();
+                this.logger.log(`Received response: ${response}`);
+                this.logger.log(`Raw response data: ${data.toString('hex')}`);
+
+                // Interpretasi respons
+                if (response.startsWith('$')) {
+                    resolve('Start Jet command executed successfully');
+                } else if (response.startsWith('!')) {
+                    reject(`Start Jet command failed. Error: ${response}`);
+                } else {
+                    reject(`Unexpected response: ${response}`);
+                }
+                client.destroy();
+            });
+
+            client.on('error', (err) => {
+                this.logger.error(`Connection error: ${err.message}`);
+                reject(`Error: ${err.message}`);
+            });
+
+            client.on('timeout', () => {
+                client.destroy();
+                reject('Connection timed out');
+            });
+        });
+    }
+
     // Method to stop the jet
     async stopJet(IP: string, Port: number): Promise<string> {
         return new Promise((resolve, reject) => {
@@ -184,6 +227,53 @@ export class PrinterService {
     }
 
     async selectMessage(dto: MessageSelectDto): Promise<string> {
+        return new Promise((resolve, reject) => {
+            // Mengganti spasi dengan %20 (URL Encoding)
+            const messageNameWithEncoding = encodeURIComponent(dto.messageName); // Encode nama pesan menjadi URL format
+
+            this.logger.log(
+                `Sending Message Select packet: ${messageNameWithEncoding}`,
+            );
+
+            const packet = this.createProtocolPacket(PacketType.MessageSelect, [
+                messageNameWithEncoding,
+            ]);
+
+            const client = new net.Socket();
+            client.connect(dto.Port, dto.IpAddress, () => {
+                this.logger.log(`Sending Message Select packet: ${packet}`);
+                client.write(packet);
+            });
+
+            client.on('data', (data) => {
+                const response = data.toString();
+                this.logger.log(`Received response: ${response}`);
+
+                if (response.startsWith('$')) {
+                    resolve('Message selected successfully');
+                } else if (response.startsWith('!')) {
+                    this.logger.error(`Error from machine: ${response}`);
+                    reject(`Failed to select message. Response: ${response}`);
+                } else {
+                    this.logger.error(`Unexpected response: ${response}`);
+                    reject(`Unexpected response: ${response}`);
+                }
+                client.destroy();
+            });
+
+            client.on('error', (err) => {
+                this.logger.error(`Connection error: ${err.message}`);
+                reject(`Error: ${err.message}`);
+            });
+
+            client.setTimeout(60000, () => {
+                this.logger.error('Connection timeout');
+                reject('Error: Connection timeout');
+            });
+        });
+    }
+
+    async selectMessageOld(dto: MessageSelectDto): Promise<string> {
         return new Promise((resolve, reject) => {
             const packet = this.createProtocolPacket(PacketType.MessageSelect, [
                 dto.messageName,
@@ -425,9 +515,9 @@ export class PrinterService {
                 ]),
             );
             const client = new net.Socket();
-            client.setTimeout(5000);
-            console.log(userFieldDto.IpAddress);
-            console.log(userFieldDto.Port);
+            client.setTimeout(60000);
+            // console.log(userFieldDto.IpAddress);
+            // console.log(userFieldDto.Port);
             client.connect(userFieldDto.Port, userFieldDto.IpAddress, () => {
                 packets.forEach((packet) => {
                     this.logger.log(
@@ -467,7 +557,8 @@ export class PrinterService {
             return 'Printer berjalan normal, tidak ada error yang terdeteksi.';
         }
 
-        let message = 'Error terdeteksi pada printer:\n';
+        // let message = 'Info terdeteksi pada printer:\n';
+        let message = 'Info:\n';
 
         if (parseInt(errorStatus, 16) & 0x1) {
             message +=

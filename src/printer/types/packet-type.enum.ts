@@ -7,6 +7,7 @@ export enum PacketType {
     UpdateUserFieldData = 'U',
     UpdateLogoData = 'L',
     SetModuleWidths = 'B',
+    StartJet = 'J',
     StopJet = 'K',
     RequestPartNumber = 'H',
     RequestErrorStatus = 'E',

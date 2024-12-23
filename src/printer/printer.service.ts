@@ -226,7 +226,7 @@ export class PrinterService {
         });
     }
 
-    async selectMessage(dto: MessageSelectDto): Promise<string> {
+    async selectMessageOld(dto: MessageSelectDto): Promise<string> {
         return new Promise((resolve, reject) => {
             // Mengganti spasi dengan %20 (URL Encoding)
             const messageNameWithEncoding = encodeURIComponent(dto.messageName); // Encode nama pesan menjadi URL format
@@ -273,7 +273,7 @@ export class PrinterService {
         });
     }
 
-    async selectMessageOld(dto: MessageSelectDto): Promise<string> {
+    async selectMessage(dto: MessageSelectDto): Promise<string> {
         return new Promise((resolve, reject) => {
             const packet = this.createProtocolPacket(PacketType.MessageSelect, [
                 dto.messageName,

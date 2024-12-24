@@ -558,14 +558,14 @@ export class PrinterService {
         }
 
         // let message = 'Info terdeteksi pada printer:\n';
-        let message = 'Info:\n';
+        let message = 'Info :';
 
         if (parseInt(errorStatus, 16) & 0x1) {
             message +=
                 '- Error pada sistem pengisian muatan (Charge system error)\n';
         }
         if (parseInt(errorStatus, 16) & 0x2) {
-            message += '- Kesalahan pada pompa (Pump fault)\n';
+            message += ' Kesalahan pada pompa (Pump fault)\n';
         }
         // Add more conditions based on error status bits
 

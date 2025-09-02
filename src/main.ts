@@ -10,7 +10,10 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule);
 
     // Global Validation Pipe
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+    // app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+    app.useGlobalPipes(
+        new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
+    );
     app.setGlobalPrefix('Videojet.service');
 
     // Swagger Configuration

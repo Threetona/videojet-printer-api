@@ -1,50 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
 import * as net from 'net';
+import { Injectable, Logger } from '@nestjs/common';
 import { PacketType } from './types/packet-type.enum';
-import { MessageSelectDto } from './dto/message-select.dto';
-import { MessageDataDto } from './dto/message-data.dto';
-import { UpdateMultyUserFieldDto } from './dto/update-multy-user-field.dto';
 import { PrintOnOffDto } from './dto/print-on-off.dto';
-// import { ErrorStatusResponseDto } from './dto/error-status-response.dto'; // Tambahkan import ini jika diperlukan
+import { MessageDataDto } from './dto/message-data.dto';
+import { createProtocolPacket } from './utils/packet-builder';
+import { MessageSelectDto } from './dto/message-select.dto';
+import { UpdateMultyUserFieldDto } from './dto/update-multy-user-field.dto';
 
 @Injectable()
 export class PrinterService {
     private readonly logger = new Logger(PrinterService.name);
-
-    private createProtocolPacket(
-        type: PacketType,
-        dataFields: string[] = [],
-    ): string {
-        const STX = String.fromCharCode(0x02);
-        const ETX = String.fromCharCode(0x03);
-        const LF = String.fromCharCode(0x0a); // Line Feed (LF) as separator
-
-        // Construct the packet
-        const data = dataFields.join(LF);
-        const packet = `${STX}${type}${data}${ETX}`;
-
-        // Calculate and append checksum
-        const checksum = this.calculateChecksum(packet);
-        return `${packet}${checksum}`;
-    }
-
-    private calculateChecksum(packet: string): string {
-        let sum = 0;
-        // Exclude STX (0 index) and ETX + checksum (last 3 characters)
-        for (let i = 1; i < packet.length - 3; i++) {
-            sum += packet.charCodeAt(i);
-        }
-        sum = sum % 256;
-        const highNibble = Math.floor(sum / 16)
-            .toString(16)
-            .toUpperCase()
-            .padStart(1, '0');
-        const lowNibble = (sum % 16)
-            .toString(16)
-            .toUpperCase()
-            .padStart(1, '0');
-        return `${highNibble}${lowNibble}`;
-    }
 
     // Method to status the jet
     async getErrorStatus(
@@ -52,9 +17,7 @@ export class PrinterService {
         Port: number,
     ): Promise<{ errorStatus: string; message: string }> {
         return new Promise((resolve, reject) => {
-            const packet = this.createProtocolPacket(
-                PacketType.RequestErrorStatus,
-            );
+            const packet = createProtocolPacket(PacketType.RequestErrorStatus);
 
             const client = new net.Socket();
             client.connect(Port, IP, () => {
@@ -89,7 +52,7 @@ export class PrinterService {
     async startJet(IP: string, Port: number): Promise<string> {
         return new Promise((resolve, reject) => {
             // Coba format perintah yang lebih sederhana, misalnya hanya "1510CMD"
-            const packet = this.createProtocolPacket(PacketType.StartJet, [
+            const packet = createProtocolPacket(PacketType.StartJet, [
                 '1510CMD',
             ]);
 
@@ -133,7 +96,7 @@ export class PrinterService {
     async stopJet(IP: string, Port: number): Promise<string> {
         return new Promise((resolve, reject) => {
             // Format the packet according to documentation
-            const packet = this.createProtocolPacket(PacketType.StopJet);
+            const packet = createProtocolPacket(PacketType.StopJet);
 
             const client = new net.Socket();
             client.setTimeout(50000); // Timeout for connection and data
@@ -178,7 +141,7 @@ export class PrinterService {
      */
     async printOnOff(printOnOffDto: PrintOnOffDto): Promise<string> {
         return new Promise((resolve, reject) => {
-            const packet = this.createProtocolPacket(PacketType.PrintOnOff, [
+            const packet = createProtocolPacket(PacketType.PrintOnOff, [
                 printOnOffDto.printOn,
             ]);
 
@@ -226,56 +189,9 @@ export class PrinterService {
         });
     }
 
-    async selectMessageOld(dto: MessageSelectDto): Promise<string> {
-        return new Promise((resolve, reject) => {
-            // Mengganti spasi dengan %20 (URL Encoding)
-            const messageNameWithEncoding = encodeURIComponent(dto.messageName); // Encode nama pesan menjadi URL format
-
-            this.logger.log(
-                `Sending Message Select packet: ${messageNameWithEncoding}`,
-            );
-
-            const packet = this.createProtocolPacket(PacketType.MessageSelect, [
-                messageNameWithEncoding,
-            ]);
-
-            const client = new net.Socket();
-            client.connect(dto.Port, dto.IpAddress, () => {
-                this.logger.log(`Sending Message Select packet: ${packet}`);
-                client.write(packet);
-            });
-
-            client.on('data', (data) => {
-                const response = data.toString();
-                this.logger.log(`Received response: ${response}`);
-
-                if (response.startsWith('$')) {
-                    resolve('Message selected successfully');
-                } else if (response.startsWith('!')) {
-                    this.logger.error(`Error from machine: ${response}`);
-                    reject(`Failed to select message. Response: ${response}`);
-                } else {
-                    this.logger.error(`Unexpected response: ${response}`);
-                    reject(`Unexpected response: ${response}`);
-                }
-                client.destroy();
-            });
-
-            client.on('error', (err) => {
-                this.logger.error(`Connection error: ${err.message}`);
-                reject(`Error: ${err.message}`);
-            });
-
-            client.setTimeout(60000, () => {
-                this.logger.error('Connection timeout');
-                reject('Error: Connection timeout');
-            });
-        });
-    }
-
     async selectMessage(dto: MessageSelectDto): Promise<string> {
         return new Promise((resolve, reject) => {
-            const packet = this.createProtocolPacket(PacketType.MessageSelect, [
+            const packet = createProtocolPacket(PacketType.MessageSelect, [
                 dto.messageName,
             ]);
 
@@ -306,9 +222,7 @@ export class PrinterService {
 
     async deleteMessageText(IP: string, Port: number): Promise<string> {
         return new Promise((resolve, reject) => {
-            const packet = this.createProtocolPacket(
-                PacketType.DeleteMessageText,
-            );
+            const packet = createProtocolPacket(PacketType.DeleteMessageText);
 
             const client = new net.Socket();
             client.setTimeout(5000); // Set timeout for the connection
@@ -367,10 +281,10 @@ export class PrinterService {
             });
 
             // Send packet using the formatted data fields
-            const packet = this.createProtocolPacket(
-                PacketType.UpdateMessageText,
-                [messageName, ...formattedDataFields],
-            );
+            const packet = createProtocolPacket(PacketType.UpdateMessageText, [
+                messageName,
+                ...formattedDataFields,
+            ]);
 
             const client = new net.Socket();
             client.setTimeout(10000); // Increase timeout to 10 seconds
@@ -409,51 +323,6 @@ export class PrinterService {
         });
     }
 
-    async updateMessageTextOld(messageData: string): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const packet = this.createProtocolPacket(
-                PacketType.UpdateMessageText,
-                [messageData],
-            );
-
-            const client = new net.Socket();
-            client.setTimeout(5000); // Set timeout for the connection
-
-            client.connect(3100, '169.254.244.247', () => {
-                this.logger.log(
-                    `Sending Update Message Text packet: ${packet}`,
-                );
-                client.write(packet);
-            });
-
-            client.on('data', (data) => {
-                const response = data.toString();
-                this.logger.log(`Received response: ${response}`);
-
-                // Handle the response
-                if (response.startsWith('$') || response.startsWith('!')) {
-                    resolve('Message updated successfully');
-                } else {
-                    reject(`Unexpected response format: ${response}`);
-                }
-
-                client.destroy(); // Ensure client is destroyed after response
-            });
-
-            client.on('timeout', () => {
-                this.logger.error('Connection timed out');
-                client.destroy();
-                reject('Connection timed out');
-            });
-
-            client.on('error', (err) => {
-                this.logger.error(`Connection error: ${err.message}`);
-                client.destroy();
-                reject(`Error: ${err.message}`);
-            });
-        });
-    }
-
     async updateUserFieldData(
         userFieldName: string,
         userFieldData: string,
@@ -461,7 +330,7 @@ export class PrinterService {
         Port: number,
     ): Promise<string> {
         return new Promise((resolve, reject) => {
-            const packet = this.createProtocolPacket(
+            const packet = createProtocolPacket(
                 PacketType.UpdateUserFieldData,
                 [userFieldName, userFieldData],
             );
@@ -509,7 +378,7 @@ export class PrinterService {
     ): Promise<string> {
         return new Promise((resolve, reject) => {
             const packets = userFieldDto.messageData.map((field) =>
-                this.createProtocolPacket(PacketType.UpdateUserFieldData, [
+                createProtocolPacket(PacketType.UpdateUserFieldData, [
                     field.userFieldName,
                     field.userFieldData,
                 ]),

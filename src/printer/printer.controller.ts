@@ -10,11 +10,11 @@ import {
     ParseIntPipe,
 } from '@nestjs/common';
 import { PrinterService } from './printer.service';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PrintOnOffDto } from './dto/print-on-off.dto';
 import { MessageSelectDto } from './dto/message-select.dto';
 import { UpdateUserFieldDto } from './dto/update-user-field.dto';
 import { UpdateMessageTextDto } from './dto/update-message-text.dto';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateMultyUserFieldDto } from './dto/update-multy-user-field.dto';
 
 @Controller('printer')
@@ -46,19 +46,6 @@ export class PrinterController {
             );
         }
     }
-
-    // @Get('start-jet/:IP/:Port')
-    // async startJet(
-    //     @Param('IP') IP: string,
-    //     @Param('Port', ParseIntPipe) Port: number,
-    // ): Promise<string> {
-    //     try {
-    //         const result = await this.printerService.startJet(IP, Port);
-    //         return result;
-    //     } catch (error) {
-    //         throw new Error(error);
-    //     }
-    // }
 
     @Get('stop-jet/:IP/:Port')
     async stopJet(
@@ -107,16 +94,6 @@ export class PrinterController {
         }
     }
 
-    // @Post('update-message-text')
-    // async updateMessageText(
-    //     @Body() updateMessageTextDto: UpdateMessageTextDto,
-    // ): Promise<string> {
-    //     const { messageData } = updateMessageTextDto;
-    //     this.logger.log(
-    //         `Received update message text request with data: ${messageData}`,
-    //     );
-    //     return await this.printerService.updateMessageText(messageData);
-    // }
     @Post('update-message-text')
     @ApiOperation({ summary: 'Update message text' })
     @ApiResponse({
